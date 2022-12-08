@@ -46,10 +46,21 @@ class Test_horz_slice:
         hslice = functions.horz_slice(dset, depths=[0, 10, 20])
         assert hslice.temp.dims == ('ocean_time', 'depth', 'eta_rho', 'xi_rho')
 
+    def test_w_has_correct_dimensions(self, forcing1):
+        keep_vars = ['w', 'z_w', 's_w', 'Vtransform', 'Cs_w', 'h', 'hc']
+        dset = forcing1.drop_vars([v for v in forcing1.variables if v not in keep_vars])
+        hslice = functions.horz_slice(dset, depths=[0, 10, 20])
+        assert hslice.w.dims == ('ocean_time', 'depth', 'eta_rho', 'xi_rho')
+
     def test_zrho_is_correct(self, forcing1):
         hslice = functions.horz_slice(forcing1, depths=[3])
         zrho_values = hslice.z_rho.values
         assert np.all(np.isclose(zrho_values, -3))
+
+    def test_zw_is_correct(self, forcing1):
+        hslice = functions.horz_slice(forcing1, depths=[3])
+        zw_values = hslice.z_w.values
+        assert np.all(np.isclose(zw_values, -3))
 
 
 class Test_point:

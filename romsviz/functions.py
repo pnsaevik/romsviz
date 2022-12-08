@@ -20,10 +20,15 @@ def open_roms(paths):
 
 
 def add_zrho(dset):
+    import numpy as np
+    import xarray as xr
+    s_rho_values = np.linspace(-1, 0, 1 + 2 * dset.dims['s_rho'])[1::2]
+    s_rho = xr.Variable('s_rho', s_rho_values)
+
     if dset.Vtransform == 1:
-        z_rho = dset.hc * (dset.s_rho - dset.Cs_r) + dset.Cs_r * dset.h
+        z_rho = dset.hc * (s_rho - dset.Cs_r) + dset.Cs_r * dset.h
     elif dset.Vtransform == 2:
-        z_rho = dset.h * (dset.hc * dset.s_rho + dset.Cs_r * dset.h) / (dset.hc + dset.h)
+        z_rho = dset.h * (dset.hc * s_rho + dset.Cs_r * dset.h) / (dset.hc + dset.h)
     else:
         raise ValueError(f"Unknown Vtransform: {dset.Vtransform}")
 
@@ -31,21 +36,36 @@ def add_zrho(dset):
 
 
 def add_zw(dset):
+    import numpy as np
+    import xarray as xr
+    s_w_values = np.linspace(-1, 0, dset.dims['s_w'])
+    s_w = xr.Variable('s_w', s_w_values)
+
     if dset.Vtransform == 1:
-        z_w = dset.hc * (dset.s_w - dset.Cs_w) + dset.Cs_w * dset.h
+        z_w = dset.hc * (s_w - dset.Cs_w) + dset.Cs_w * dset.h
     elif dset.Vtransform == 2:
-        z_w = dset.h * (dset.hc * dset.s_w + dset.Cs_w * dset.h) / (dset.hc + dset.h)
+        z_w = dset.h * (dset.hc * s_w + dset.Cs_w * dset.h) / (dset.hc + dset.h)
     else:
         raise ValueError(f"Unknown Vtransform: {dset.Vtransform}")
 
-    return dset.assign(z_rho=z_w.transpose('s_w', 'eta_rho', 'xi_rho'))
+    return dset.assign(z_w=z_w.transpose('s_w', 'eta_rho', 'xi_rho'))
 
 
 def horz_slice(dset, depths):
+    # Interpolate in s_w direction if necessary
+    if 's_w' in dset.dims:
+        dset = horz_slice_single_stagger(dset, depths, s_dim='s_w')
+
+    # Interpolate in s_rho direction if necessary
+    if 's_rho' in dset.dims:
+        dset = horz_slice_single_stagger(dset, depths, s_dim='s_rho')
+
+    return dset
+
+
+def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     import numpy as np
     import xarray as xr
-
-    s_dim = 's_rho'
 
     if s_dim == 's_rho':
         if 'z_rho' not in dset:
