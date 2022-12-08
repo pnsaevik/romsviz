@@ -41,22 +41,20 @@ class Test_add_zw:
 
 class Test_horz_slice:
     def test_temp_has_correct_dimensions(self, forcing1):
-        dset = functions.add_zrho(forcing1)
-        keep_vars = ['temp', 'z_rho', 's_rho']
-        subset = dset.drop_vars([v for v in dset.variables if v not in keep_vars])
-        hslice = functions.horz_slice(subset, depths=[0, 10, 20])
+        keep_vars = ['temp', 'z_rho', 's_rho', 'Vtransform', 'Cs_r', 'h', 'hc']
+        dset = forcing1.drop_vars([v for v in forcing1.variables if v not in keep_vars])
+        hslice = functions.horz_slice(dset, depths=[0, 10, 20])
         assert hslice.temp.dims == ('ocean_time', 'depth', 'eta_rho', 'xi_rho')
 
     def test_zrho_is_correct(self, forcing1):
-        dset = functions.add_zrho(forcing1)
-        hslice = functions.horz_slice(dset, depths=[3])
+        hslice = functions.horz_slice(forcing1, depths=[3])
         zrho_values = hslice.z_rho.values
         assert np.all(np.isclose(zrho_values, -3))
 
 
 class Test_point:
     def test_includes_depth(self, forcing1):
-        pass
+        point = functions.point(forcing1, lat=59.03062209, lon=5.67321047)
 
 
 class Test_bilin_inv:

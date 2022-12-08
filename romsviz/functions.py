@@ -84,7 +84,8 @@ def horz_slice(dset, depths):
 
 
 def point(dset, lat, lon):
-    pass
+    y, x = bilin_inv(lat, lon, dset.lat_rho.values, dset.lon_rho.values)
+    return dset
 
 
 def bilin_inv(f, g, F, G, maxiter=7, tol=1.0e-7):
