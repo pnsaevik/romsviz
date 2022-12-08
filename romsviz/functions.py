@@ -46,7 +46,15 @@ def horz_slice(dset, depths):
     import xarray as xr
 
     s_dim = 's_rho'
-    var_z = dset.z_rho if s_dim == 's_rho' else dset.z_w
+
+    if s_dim == 's_rho':
+        if 'z_rho' not in dset:
+            dset = add_zrho(dset)
+        var_z = dset.z_rho
+    else:
+        if 'z_w' not in dset:
+            dset = add_zw(dset)
+        var_z = dset.z_w
 
     var_depths = -xr.Variable('depth', depths)
     kmax = dset.dims[s_dim]  # Number of vertical levels
@@ -73,3 +81,68 @@ def horz_slice(dset, depths):
         v = (1 - frac) * dset_1[varname] + frac * dset_0[varname]
         depth_vars[varname] = v.transpose(*dset_1[varname].dims)
     return dset_1.assign(**depth_vars)
+
+
+def point(dset, lat, lon):
+    pass
+
+
+def bilin_inv(f, g, F, G, maxiter=7, tol=1.0e-7):
+    import numpy as np
+
+    """Inverse bilinear interpolation
+
+    f, g : scalars or arrays of same shape
+    F, G : 2D arrays of the same shape
+
+    returns x, y : shaped like f and g
+    such that F and G linearly interpolated to x, y
+    returns f and g
+
+    """
+    imax, jmax = F.shape
+
+    # initial guess
+    x = np.zeros_like(f) + 0.5 * imax
+    y = np.zeros_like(f) + 0.5 * jmax
+
+    for t in range(maxiter):
+        i = x.astype("i4").clip(0, imax - 2)
+        j = y.astype("i4").clip(0, jmax - 2)
+        p = x - i
+        q = y - j
+
+        # Bilinear estimate of F[x,y] and G[x,y]
+        Fs = (
+            (1 - p) * (1 - q) * F[i, j]
+            + p * (1 - q) * F[i + 1, j]
+            + (1 - p) * q * F[i, j + 1]
+            + p * q * F[i + 1, j + 1]
+        )
+        Gs = (
+            (1 - p) * (1 - q) * G[i, j]
+            + p * (1 - q) * G[i + 1, j]
+            + (1 - p) * q * G[i, j + 1]
+            + p * q * G[i + 1, j + 1]
+        )
+
+        H = (Fs - f) ** 2 + (Gs - g) ** 2
+
+        if np.all(H < tol):
+            break
+
+        # Estimate Jacobi matrix
+        Fx = (1 - q) * (F[i + 1, j] - F[i, j]) + q * (F[i + 1, j + 1] - F[i, j + 1])
+        Fy = (1 - p) * (F[i, j + 1] - F[i, j]) + p * (F[i + 1, j + 1] - F[i + 1, j])
+        Gx = (1 - q) * (G[i + 1, j] - G[i, j]) + q * (G[i + 1, j + 1] - G[i, j + 1])
+        Gy = (1 - p) * (G[i, j + 1] - G[i, j]) + p * (G[i + 1, j + 1] - G[i + 1, j])
+
+        # Newton-Raphson step
+        # Jinv = np.linalg.inv([[Fx, Fy], [Gx, Gy]])
+        # incr = - np.dot(Jinv, [Fs-f, Gs-g])
+        # x = x + incr[0], y = y + incr[1]
+        det = Fx * Gy - Fy * Gx
+        x -= (Gy * (Fs - f) - Fy * (Gs - g)) / det
+        y -= (-Gx * (Fs - f) + Fx * (Gs - g)) / det
+
+    return x, y

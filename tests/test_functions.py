@@ -52,3 +52,23 @@ class Test_horz_slice:
         hslice = functions.horz_slice(dset, depths=[3])
         zrho_values = hslice.z_rho.values
         assert np.all(np.isclose(zrho_values, -3))
+
+
+class Test_point:
+    def test_includes_depth(self, forcing1):
+        pass
+
+
+class Test_bilin_inv:
+    def test_can_retrieve_coordinates(self):
+        y, x = np.meshgrid(np.arange(4), np.arange(5), indexing='ij')
+        u = x + y
+        v = x - y
+        i = np.array([0, 1, 4])
+        j = np.array([0, 0, 3])
+        u_ji = u[j, i]
+        v_ji = v[j, i]
+
+        j2, i2 = functions.bilin_inv(u_ji, v_ji, u, v)
+        assert j2.tolist() == j.tolist()
+        assert i2.tolist() == i.tolist()
