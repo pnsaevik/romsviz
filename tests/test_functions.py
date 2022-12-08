@@ -98,11 +98,22 @@ class Test_velocity:
         velocity = functions.velocity(point)
         assert velocity.dims == ('ocean_time', 's_rho')
 
+    def test_can_handle_azimuthal_point_datasets(self, forcing1):
+        point = functions.point(forcing1, lat=59.03062209, lon=5.67321047)
+        velocity = functions.velocity(point, azimuth=0)
+        assert velocity.dims == ('ocean_time', 's_rho')
+
     def test_returns_zero_velocity_if_on_land_if_point_dataset(self, forcing1):
         point = functions.point(forcing1, lat=59.026137, lon=5.672106)
         assert point.mask_rho < 0.001
         velocity = functions.velocity(point)
         assert np.all(velocity.values < 0.001)
+
+    def test_velocity_changes_with_azimuth(self, forcing1):
+        velocity_north = functions.velocity(forcing1, azimuth=0)
+        velocity_east = functions.velocity(forcing1, azimuth=-np.pi/2)
+        assert velocity_north.dims == ('ocean_time', 's_rho', 'eta_rho', 'xi_rho')
+        assert velocity_north[0, 0, 0, 0] != velocity_east[0, 0, 0, 0]
 
 
 class Test_bilin_inv:

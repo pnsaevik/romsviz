@@ -150,6 +150,7 @@ def velocity(dset, azimuth=None):
     if 'xi_u' in u.dims:
         u = u * dset.mask_u.variable
         v = v * dset.mask_v.variable
+        dset = dset.isel(xi_rho=slice(1, -1), eta_rho=slice(1, -1))
         u = 0.5 * (u[..., 1:-1, :-1] + u[..., 1:-1, 1:])
         v = 0.5 * (v[..., :-1, 1:-1] + v[..., 1:, 1:-1])
         u = xr.DataArray(u).rename(xi_u='xi_rho', eta_u='eta_rho')
@@ -157,6 +158,13 @@ def velocity(dset, azimuth=None):
 
     if azimuth is None:
         return np.sqrt(u * u + v * v)
+
+    else:
+        angle = dset.angle.variable
+        assert angle.attrs['units'] == "radians"
+
+        theta = azimuth + np.pi / 2 - angle
+        return u * np.cos(theta) + v * np.sin(theta)
 
 
 def bilin_inv(f, g, F, G, maxiter=7, tol=1.0e-7):
