@@ -32,7 +32,8 @@ def add_zrho(dset):
     else:
         raise ValueError(f"Unknown Vtransform: {dset.Vtransform}")
 
-    return dset.assign(z_rho=z_rho.transpose('s_rho', 'eta_rho', 'xi_rho'))
+    dims = tuple(s_rho.dims) + tuple(dset.h.dims)
+    return dset.assign(z_rho=z_rho.transpose(*dims))
 
 
 def add_zw(dset):
@@ -48,7 +49,8 @@ def add_zw(dset):
     else:
         raise ValueError(f"Unknown Vtransform: {dset.Vtransform}")
 
-    return dset.assign(z_w=z_w.transpose('s_w', 'eta_rho', 'xi_rho'))
+    dims = tuple(s_w.dims) + tuple(dset.h.dims)
+    return dset.assign(z_w=z_w.transpose(*dims))
 
 
 def horz_slice(dset, depths):
@@ -104,7 +106,26 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
 
 
 def point(dset, lat, lon):
+    import numpy as np
+
     y, x = bilin_inv(lat, lon, dset.lat_rho.values, dset.lon_rho.values)
+
+    x_min = 0.5
+    y_min = 0.5
+    x_max = dset.dims['xi_rho'] - 1.5
+    y_max = dset.dims['eta_rho'] - 1.5
+    x = np.clip(x, x_min, x_max)
+    y = np.clip(y, y_min, y_max)
+
+    dset = dset.interp(
+        xi_rho=x,
+        eta_rho=y,
+        xi_u=x - 0.5,
+        eta_u=int(y + 0.5),
+        xi_v=int(x + 0.5),
+        eta_v=y - 0.5,
+    )
+
     return dset
 
 

@@ -36,7 +36,7 @@ class Test_add_zrho:
 class Test_add_zw:
     def test_zw_has_correct_dimensions(self, forcing1):
         dset = functions.add_zw(forcing1)
-        assert dset.z_rho.dims == ('s_w', 'eta_rho', 'xi_rho')
+        assert dset.z_w.dims == ('s_w', 'eta_rho', 'xi_rho')
 
 
 class Test_horz_slice:
@@ -64,8 +64,16 @@ class Test_horz_slice:
 
 
 class Test_point:
-    def test_includes_depth(self, forcing1):
+    def test_returns_single_point(self, forcing1):
         point = functions.point(forcing1, lat=59.03062209, lon=5.67321047)
+        assert point.temp.dims == ('ocean_time', 's_rho')
+
+    def test_can_add_depths_afterwards(self, forcing1):
+        point = functions.point(forcing1, lat=59.03062209, lon=5.67321047)
+        point = functions.add_zw(point)
+        point = functions.add_zrho(point)
+        assert len(point.z_rho) == 35
+        assert len(point.z_w) == 36
 
 
 class Test_bilin_inv:
