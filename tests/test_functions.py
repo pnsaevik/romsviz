@@ -12,7 +12,7 @@ FORCING_STAR = str(Path(__file__).parent / 'forcing_*.nc')
 
 @pytest.fixture(scope='module')
 def forcing1():
-    with xr.open_dataset(FORCING_1) as dset:
+    with xr.open_dataset(FORCING_1, decode_cf=False, mask_and_scale=False) as dset:
         yield dset
 
 
@@ -74,6 +74,35 @@ class Test_point:
         point = functions.add_zrho(point)
         assert len(point.z_rho) == 35
         assert len(point.z_w) == 36
+
+
+class Test_velocity:
+    def test_returns_absolute_velocity_if_no_params(self, forcing1):
+        velocity = functions.velocity(forcing1)
+        assert np.all(velocity.values >= 0)
+
+    def test_shrinks_domain_size(self, forcing1):
+        velocity = functions.velocity(forcing1)
+        assert velocity.shape[-2:] == (8, 13)
+        assert forcing1.h.shape == (10, 15)
+
+    def test_returns_zero_velocity_if_on_land(self, forcing1):
+        x = 2
+        y = 4
+        velocity = functions.velocity(forcing1)
+        assert forcing1.mask_rho[y, x].values == 0
+        assert velocity[0, 0, y - 1, x - 1].values == 0
+
+    def test_can_handle_point_datasets(self, forcing1):
+        point = functions.point(forcing1, lat=59.03062209, lon=5.67321047)
+        velocity = functions.velocity(point)
+        assert velocity.dims == ('ocean_time', 's_rho')
+
+    def test_returns_zero_velocity_if_on_land_if_point_dataset(self, forcing1):
+        point = functions.point(forcing1, lat=59.026137, lon=5.672106)
+        assert point.mask_rho < 0.001
+        velocity = functions.velocity(point)
+        assert np.all(velocity.values < 0.001)
 
 
 class Test_bilin_inv:

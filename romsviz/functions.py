@@ -16,6 +16,8 @@ def open_roms(paths):
         parallel=True,
         join='override',
         combine_attrs='override',
+        decode_cf=False,
+        mask_and_scale=False,
     )
 
 
@@ -117,7 +119,12 @@ def point(dset, lat, lon):
     x = np.clip(x, x_min, x_max)
     y = np.clip(y, y_min, y_max)
 
-    dset = dset.interp(
+    if 'u' in dset:
+        dset = dset.assign(u=dset.u * dset.mask_u)
+    if 'v' in dset:
+        dset = dset.assign(v=dset.v * dset.mask_v)
+
+    coords = dict(
         xi_rho=x,
         eta_rho=y,
         xi_u=x - 0.5,
@@ -126,7 +133,30 @@ def point(dset, lat, lon):
         eta_v=y - 0.5,
     )
 
+    # Do interpolation
+    dset = dset.drop_vars(names=list(coords), errors='ignore')
+    dset = dset.interp(coords)
+
     return dset
+
+
+def velocity(dset, azimuth=None):
+    import numpy as np
+    import xarray as xr
+
+    u = dset.u.variable
+    v = dset.v.variable
+
+    if 'xi_u' in u.dims:
+        u = u * dset.mask_u.variable
+        v = v * dset.mask_v.variable
+        u = 0.5 * (u[..., 1:-1, :-1] + u[..., 1:-1, 1:])
+        v = 0.5 * (v[..., :-1, 1:-1] + v[..., 1:, 1:-1])
+        u = xr.DataArray(u).rename(xi_u='xi_rho', eta_u='eta_rho')
+        v = xr.DataArray(v).rename(xi_v='xi_rho', eta_v='eta_rho')
+
+    if azimuth is None:
+        return np.sqrt(u * u + v * v)
 
 
 def bilin_inv(f, g, F, G, maxiter=7, tol=1.0e-7):
