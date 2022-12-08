@@ -2,6 +2,7 @@ import pytest
 from pathlib import Path
 from romsviz import functions
 import xarray as xr
+import numpy as np
 
 
 FORCING_1 = Path(__file__).parent / 'forcing_1.nc'
@@ -36,3 +37,18 @@ class Test_add_zw:
     def test_zw_has_correct_dimensions(self, forcing1):
         dset = functions.add_zw(forcing1)
         assert dset.z_rho.dims == ('s_w', 'eta_rho', 'xi_rho')
+
+
+class Test_horz_slice:
+    def test_temp_has_correct_dimensions(self, forcing1):
+        dset = functions.add_zrho(forcing1)
+        keep_vars = ['temp', 'z_rho', 's_rho']
+        subset = dset.drop_vars([v for v in dset.variables if v not in keep_vars])
+        hslice = functions.horz_slice(subset, depths=[0, 10, 20])
+        assert hslice.temp.dims == ('ocean_time', 'depth', 'eta_rho', 'xi_rho')
+
+    def test_zrho_is_correct(self, forcing1):
+        dset = functions.add_zrho(forcing1)
+        hslice = functions.horz_slice(dset, depths=[3])
+        zrho_values = hslice.z_rho.values
+        assert np.all(np.isclose(zrho_values, -3))
