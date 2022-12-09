@@ -109,3 +109,15 @@ class Test_argument_docstring:
         assert docstrings['a'] == "This is argument a"
         assert docstrings['b'] == "The parameter is b"
         assert docstrings['c'] == "This is how you use c"
+
+
+class Test_slice_function:
+    def test_produces_output_file(self, tmp_path):
+        import shutil
+        from pathlib import Path
+        fixture_path = Path(__file__).parent / 'forcing_1.nc'
+        fname_in = tmp_path / 'forcing.nc'
+        fname_out = tmp_path / 'slice.nc'
+        shutil.copyfile(fixture_path, fname_in)
+        scripts.run('slice', str(fname_in), str(fname_out), '10')
+        assert fname_out.exists()

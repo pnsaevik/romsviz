@@ -1,6 +1,6 @@
 def run(*argv):
     subcommands = [
-        dummy,
+        slice,
     ]
 
     parser = get_argument_parser(subcommands)
@@ -95,12 +95,19 @@ def argument_docstring(fn):
     return docstrings
 
 
-def dummy(a, b):
+# noinspection PyShadowingBuiltins
+def slice(input, output, depth):
     """
-    Print the sum of two variables
+    Interpolate a ROMS dataset to a specific depth level
 
     More descriptive help
-    :param a: First param
-    :param b: Second param
+    :param input: Name of input file
+    :param output: Name of output file
+    :param depth: Depth level
     """
-    print(int(a) + int(b))
+    depth = float(depth)
+
+    from .functions import open_roms, horz_slice
+    with open_roms(input) as dset_in:
+        dset_out = horz_slice(dset_in, [depth])
+        dset_out.to_netcdf(output)

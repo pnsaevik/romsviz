@@ -87,7 +87,7 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     k_above = (var_z < var_depths).sum(dim=s_dim)
     k_above = np.maximum(np.minimum(k_above, kmax - 1), 1)
     dim_order = list(var_depths.dims) + [d for d in var_z.dims if d != s_dim]
-    k_above = k_above.transpose(*dim_order)
+    k_above = k_above.transpose(*dim_order).compute()
 
     # Select layers below and above
     dset_0 = dset.isel({s_dim: k_above - 1})
