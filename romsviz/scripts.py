@@ -105,9 +105,12 @@ def slice(input, output, depth):
     :param output: Name of output file
     :param depth: Depth level
     """
+    from .functions import open_roms, horz_slice
+    import dask.diagnostics
+
     depth = float(depth)
 
-    from .functions import open_roms, horz_slice
-    with open_roms(input) as dset_in:
-        dset_out = horz_slice(dset_in, [depth])
-        dset_out.to_netcdf(output)
+    with dask.diagnostics.ProgressBar():
+        with open_roms(input) as dset_in:
+            dset_out = horz_slice(dset_in, [depth])
+            dset_out.to_netcdf(output)
