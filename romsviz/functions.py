@@ -100,7 +100,7 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     # Use interpolation between layers, for depth-dependent parameters
     depth_vars = {
         k: None for k, v in dset.variables.items()
-        if (s_dim in v.dims) and ('xi_u' not in v.dims) and ('eta_v' not in v.dims)
+        if v.dims[-3:] == (s_dim, 'eta_rho', 'xi_rho')
     }
     for varname in depth_vars:
         # Interpolate between layers above and below
@@ -149,7 +149,6 @@ def select_layer(variable, selector):
                 return variable.compute().isel(selector).values[item]
 
     data = dask.array.from_array(DaskCompatibleObject(), chunks=chunk_size, asarray=False)
-    data = data.compute()
 
     return xr.Variable(
         dims=out_dims,
