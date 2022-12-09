@@ -74,10 +74,12 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     if s_dim == 's_rho':
         if 'z_rho' not in dset:
             dset = add_zrho(dset)
+            dset['z_rho'] = dset.z_rho.compute()
         var_z = dset.z_rho
     else:
         if 'z_w' not in dset:
             dset = add_zw(dset)
+            dset['z_w'] = dset.z_w.compute()
         var_z = dset.z_w
 
     var_depths = -xr.Variable('depth', depths)
@@ -89,15 +91,15 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     dim_order = list(var_depths.dims) + [d for d in var_z.dims if d != s_dim]
     k_above = k_above.transpose(*dim_order).compute()
 
-    # Select layers below and above
-    dset_0 = dset.isel({s_dim: k_above - 1})
-    dset_1 = dset.isel({s_dim: k_above})
-
     # Find out where exactly between the layers we should be
     depth_0 = var_z.isel({s_dim: k_above - 1})
     depth_1 = var_z.isel({s_dim: k_above})
     frac = (depth_1 - var_depths) / (depth_1 - depth_0)
     frac = np.minimum(1, np.maximum(0, frac))
+
+    # Select layers below and above
+    dset_0 = dset.isel({s_dim: k_above - 1})
+    dset_1 = dset.isel({s_dim: k_above})
 
     # Use interpolation between layers, for depth-dependent parameters
     depth_vars = {k: None for k, v in dset.variables.items() if s_dim in v.dims}

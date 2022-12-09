@@ -121,3 +121,9 @@ class Test_slice_function:
         shutil.copyfile(fixture_path, fname_in)
         scripts.run('slice', str(fname_in), str(fname_out), '10')
         assert fname_out.exists()
+
+
+def tast_():
+    fname_in = r"s:\scratch\ROMS\NorFjords-Fram\A01-13\A01\norfjords_160m_his.nc4_2017040101-2017040200"
+    fname_out = r"C:\Users\a5606\Downloads\slice.nc"
+    scripts.run('slice', fname_in, fname_out, '10')
