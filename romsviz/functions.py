@@ -74,11 +74,13 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     if s_dim == 's_rho':
         if 'z_rho' not in dset:
             dset = add_zrho(dset)
-        var_z = dset.z_rho
+            dset['z_rho'] = dset.z_rho.compute()
+        var_z = dset.z_rho.variable
     else:
         if 'z_w' not in dset:
             dset = add_zw(dset)
-        var_z = dset.z_w
+            dset['z_w'] = dset.z_w.compute()
+        var_z = dset.z_w.variable
 
     var_depths = -xr.Variable('depth', depths)
     kmax = dset.dims[s_dim]  # Number of vertical levels
@@ -87,11 +89,7 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     k_above = (var_z < var_depths).sum(dim=s_dim)
     k_above = np.maximum(np.minimum(k_above, kmax - 1), 1)
     dim_order = list(var_depths.dims) + [d for d in var_z.dims if d != s_dim]
-    k_above = k_above.transpose(*dim_order)
-
-    # Select layers below and above
-    dset_0 = dset.isel({s_dim: k_above - 1})
-    dset_1 = dset.isel({s_dim: k_above})
+    k_above = k_above.transpose(*dim_order).compute()
 
     # Find out where exactly between the layers we should be
     depth_0 = var_z.isel({s_dim: k_above - 1})
@@ -100,11 +98,64 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     frac = np.minimum(1, np.maximum(0, frac))
 
     # Use interpolation between layers, for depth-dependent parameters
-    depth_vars = {k: None for k, v in dset.variables.items() if s_dim in v.dims}
+    depth_vars = {
+        k: None for k, v in dset.variables.items()
+        if v.dims[-3:] == (s_dim, 'eta_rho', 'xi_rho')
+    }
     for varname in depth_vars:
-        v = (1 - frac) * dset_1[varname] + frac * dset_0[varname]
-        depth_vars[varname] = v.transpose(*dset_1[varname].dims)
-    return dset_1.assign(**depth_vars)
+        # Interpolate between layers above and below
+        var_0 = select_layer(dset.variables[varname], {s_dim: k_above - 1})
+        var_1 = select_layer(dset.variables[varname], {s_dim: k_above})
+        v = (1 - frac) * var_1 + frac * var_0
+        depth_vars[varname] = v.transpose(*var_0.dims)
+    return dset.assign(**depth_vars)
+
+
+def select_layer(variable, selector):
+    """This function is requried since .isel is not properly lazified"""
+
+    # TODO: This does not work for u-points and v-points
+
+    import xarray as xr
+    import dask.array
+
+    s_dim = next(s for s in selector)
+    z_dim = selector[s_dim].dims[0]
+
+    # Compute shape and dimensions of output object
+    variable_dims = {k: v for k, v in zip(variable.dims, variable.shape)}
+    selector_dims = {k: v for k, v in zip(selector[s_dim].dims, selector[s_dim].shape)}
+    chunk_dim = 'ocean_time'
+    low_dims = list(selector[s_dim].dims[1:])
+    low_shape = list(selector[s_dim].shape[1:])
+    high_dims = [d for d in variable.dims if d not in [z_dim, s_dim] + low_dims]
+    high_shape = [variable_dims[d] for d in high_dims]
+    out_dims = high_dims + [z_dim] + low_dims
+    out_shape = high_shape + [selector_dims[z_dim]] + low_shape
+    chunk_size = [1 if d == chunk_dim else None for d in out_dims]
+
+    class DaskCompatibleObject:
+        def __init__(self):
+            self.shape = out_shape
+            self.ndim = len(out_shape)
+            self.dtype = variable.dtype
+
+        def __getitem__(self, item):
+            if variable.dims[0] == chunk_dim:
+                first_index = item[0]
+                new_item = (slice(0, 1),) + item[1:]
+                return variable[first_index].compute().isel(selector).values[new_item]
+            else:
+                return variable.compute().isel(selector).values[item]
+
+    data = dask.array.from_array(DaskCompatibleObject(), chunks=chunk_size, asarray=False)
+
+    return xr.Variable(
+        dims=out_dims,
+        data=data,
+        attrs=variable.attrs,
+        encoding=variable.encoding,
+    )
 
 
 def point(dset, lat, lon):

@@ -129,3 +129,33 @@ class Test_bilin_inv:
         j2, i2 = functions.bilin_inv(u_ji, v_ji, u, v)
         assert j2.tolist() == j.tolist()
         assert i2.tolist() == i.tolist()
+
+
+class Test_select_layer:
+    def test_equals_regular_selector(self):
+        import dask.array
+        data = np.arange(96).reshape((4, 2, 3, 4))
+        variable = xr.Variable(
+            dims=('ocean_time', 's_rho', 'eta_rho', 'xi_rho'),
+            data=dask.array.from_array(data, chunks=(1, None, None, None)),
+        )
+        srho_selector = xr.Variable(
+            dims=('depth', 'eta_rho', 'xi_rho'),
+            data=[
+                [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+                [[0, 0, 1, 1], [0, 1, 1, 1], [1, 1, 1, 0]],
+                [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]],
+            ],
+        )
+        selector = {'s_rho': srho_selector}
+        result = functions.select_layer(variable, selector).compute()
+        assert result[0].values.tolist() == [
+            [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+            [[0, 1, 14, 15], [4, 17, 18, 19], [20, 21, 22, 11]],
+            [[12, 13, 14, 15], [16, 17, 18, 19], [20, 21, 22, 23]],
+        ]
+        assert result[3].values.tolist() == [
+            [[72, 73, 74, 75], [76, 77, 78, 79], [80, 81, 82, 83]],
+            [[72, 73, 86, 87], [76, 89, 90, 91], [92, 93, 94, 83]],
+            [[84, 85, 86, 87], [88, 89, 90, 91], [92, 93, 94, 95]],
+        ]
