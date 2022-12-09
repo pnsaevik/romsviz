@@ -98,7 +98,10 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     frac = np.minimum(1, np.maximum(0, frac))
 
     # Use interpolation between layers, for depth-dependent parameters
-    depth_vars = {k: None for k, v in dset.variables.items() if s_dim in v.dims}
+    depth_vars = {
+        k: None for k, v in dset.variables.items()
+        if (s_dim in v.dims) and ('xi_u' not in v.dims) and ('eta_v' not in v.dims)
+    }
     for varname in depth_vars:
         # Interpolate between layers above and below
         var_0 = select_layer(dset.variables[varname], {s_dim: k_above - 1})
@@ -109,7 +112,51 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
 
 
 def select_layer(variable, selector):
-    return variable.isel(selector)
+    """This function is requried since .isel is not properly lazified"""
+
+    # TODO: This does not work for u-points and v-points
+
+    import xarray as xr
+    import dask.array
+
+    s_dim = next(s for s in selector)
+    z_dim = selector[s_dim].dims[0]
+
+    # Compute shape and dimensions of output object
+    variable_dims = {k: v for k, v in zip(variable.dims, variable.shape)}
+    selector_dims = {k: v for k, v in zip(selector[s_dim].dims, selector[s_dim].shape)}
+    chunk_dim = 'ocean_time'
+    low_dims = list(selector[s_dim].dims[1:])
+    low_shape = list(selector[s_dim].shape[1:])
+    high_dims = [d for d in variable.dims if d not in [z_dim, s_dim] + low_dims]
+    high_shape = [variable_dims[d] for d in high_dims]
+    out_dims = high_dims + [z_dim] + low_dims
+    out_shape = high_shape + [selector_dims[z_dim]] + low_shape
+    chunk_size = [1 if d == chunk_dim else None for d in out_dims]
+
+    class DaskCompatibleObject:
+        def __init__(self):
+            self.shape = out_shape
+            self.ndim = len(out_shape)
+            self.dtype = variable.dtype
+
+        def __getitem__(self, item):
+            if variable.dims[0] == chunk_dim:
+                first_index = item[0]
+                new_item = (slice(0, 1),) + item[1:]
+                return variable[first_index].compute().isel(selector).values[new_item]
+            else:
+                return variable.compute().isel(selector).values[item]
+
+    data = dask.array.from_array(DaskCompatibleObject(), chunks=chunk_size, asarray=False)
+    data = data.compute()
+
+    return xr.Variable(
+        dims=out_dims,
+        data=data,
+        attrs=variable.attrs,
+        encoding=variable.encoding,
+    )
 
 
 def point(dset, lat, lon):
