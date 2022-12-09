@@ -75,12 +75,12 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
         if 'z_rho' not in dset:
             dset = add_zrho(dset)
             dset['z_rho'] = dset.z_rho.compute()
-        var_z = dset.z_rho
+        var_z = dset.z_rho.variable
     else:
         if 'z_w' not in dset:
             dset = add_zw(dset)
             dset['z_w'] = dset.z_w.compute()
-        var_z = dset.z_w
+        var_z = dset.z_w.variable
 
     var_depths = -xr.Variable('depth', depths)
     kmax = dset.dims[s_dim]  # Number of vertical levels
@@ -97,16 +97,19 @@ def horz_slice_single_stagger(dset, depths, s_dim='s_rho'):
     frac = (depth_1 - var_depths) / (depth_1 - depth_0)
     frac = np.minimum(1, np.maximum(0, frac))
 
-    # Select layers below and above
-    dset_0 = dset.isel({s_dim: k_above - 1})
-    dset_1 = dset.isel({s_dim: k_above})
-
     # Use interpolation between layers, for depth-dependent parameters
     depth_vars = {k: None for k, v in dset.variables.items() if s_dim in v.dims}
     for varname in depth_vars:
-        v = (1 - frac) * dset_1[varname] + frac * dset_0[varname]
-        depth_vars[varname] = v.transpose(*dset_1[varname].dims)
-    return dset_1.assign(**depth_vars)
+        # Interpolate between layers above and below
+        var_0 = select_layer(dset.variables[varname], {s_dim: k_above - 1})
+        var_1 = select_layer(dset.variables[varname], {s_dim: k_above})
+        v = (1 - frac) * var_1 + frac * var_0
+        depth_vars[varname] = v.transpose(*var_0.dims)
+    return dset.assign(**depth_vars)
+
+
+def select_layer(variable, selector):
+    return variable.isel(selector)
 
 
 def point(dset, lat, lon):
