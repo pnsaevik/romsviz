@@ -1,6 +1,7 @@
 def run(*argv):
     subcommands = [
         slice,
+        average,
     ]
 
     parser = get_argument_parser(subcommands)
@@ -113,4 +114,28 @@ def slice(input, output, depth):
     with dask.diagnostics.ProgressBar():
         with open_roms(input) as dset_in:
             dset_out = horz_slice(dset_in, depths)
+            dset_out.to_netcdf(output)
+
+
+# noinspection PyShadowingBuiltins
+def average(input, output, start, stop):
+    """
+    Interpolate a ROMS dataset to a specific depth level
+
+    More descriptive help
+    :param input: Name of input file
+    :param output: Name of output file
+    :param start: Start date
+    :param stop: Stop date
+    """
+    from .functions import open_roms, average
+    import dask.diagnostics
+    import numpy as np
+
+    start = np.datetime64(start)
+    stop = np.datetime64(stop)
+
+    with dask.diagnostics.ProgressBar():
+        with open_roms(input) as dset_in:
+            dset_out = average(dset_in, start, stop)
             dset_out.to_netcdf(output)

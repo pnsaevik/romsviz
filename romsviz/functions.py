@@ -277,3 +277,24 @@ def bilin_inv(f, g, F, G, maxiter=7, tol=1.0e-7):
         y -= (-Gx * (Fs - f) + Fx * (Gs - g)) / det
 
     return x, y
+
+
+def average(dset, start, stop):
+    import numpy as np
+    import cftime
+    start_num = cftime.date2num(
+        np.datetime64(start, 'us').astype(object),
+        dset.ocean_time.attrs['units'],
+        dset.ocean_time.attrs.get('calendar', 'standard'),
+    )
+    stop_num = cftime.date2num(
+        np.datetime64(stop, 'us').astype(object),
+        dset.ocean_time.attrs['units'],
+        dset.ocean_time.attrs.get('calendar', 'standard'),
+    )
+    times = dset.ocean_time.values
+    idx_start = np.sum(times < start_num)
+    idx_stop = np.sum(times <= stop_num)
+    ddset = dset.isel(ocean_time=slice(idx_start, idx_stop))
+    print(f'Number of time steps: {len(ddset.ocean_time)}')
+    return ddset.mean(dim='ocean_time')
