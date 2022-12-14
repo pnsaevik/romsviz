@@ -103,14 +103,14 @@ def slice(input, output, depth):
     More descriptive help
     :param input: Name of input file
     :param output: Name of output file
-    :param depth: Depth level
+    :param depth: Depth levels, separated by comma
     """
     from .functions import open_roms, horz_slice
     import dask.diagnostics
 
-    depth = float(depth)
+    depths = [float(d) for d in depth.split(',')]
 
     with dask.diagnostics.ProgressBar():
         with open_roms(input) as dset_in:
-            dset_out = horz_slice(dset_in, [depth])
+            dset_out = horz_slice(dset_in, depths)
             dset_out.to_netcdf(output)
