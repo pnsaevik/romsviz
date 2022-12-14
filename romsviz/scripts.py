@@ -2,6 +2,7 @@ def run(*argv):
     subcommands = [
         slice,
         average,
+        point,
     ]
 
     parser = get_argument_parser(subcommands)
@@ -120,9 +121,8 @@ def slice(input, output, depth):
 # noinspection PyShadowingBuiltins
 def average(input, output, start, stop):
     """
-    Interpolate a ROMS dataset to a specific depth level
+    Compute time-averaged ROMS dataset
 
-    More descriptive help
     :param input: Name of input file
     :param output: Name of output file
     :param start: Start date
@@ -138,4 +138,28 @@ def average(input, output, start, stop):
     with dask.diagnostics.ProgressBar():
         with open_roms(input) as dset_in:
             dset_out = average(dset_in, start, stop)
+            dset_out.to_netcdf(output)
+
+
+# noinspection PyShadowingBuiltins
+def point(input, output, lat, lon):
+    """
+    Interpolate a ROMS dataset at a specific point
+    :param input: Name of input file
+    :param output: Name of output file
+    :param lat: Latitude of point
+    :param lon: Longitude of point
+    """
+    from .functions import open_roms, point, add_zw, add_zrho
+    import dask.diagnostics
+
+    lat = float(lat)
+    lon = float(lon)
+
+    with dask.diagnostics.ProgressBar():
+        with open_roms(input) as dset_in:
+            dset_out = point(dset_in, lat, lon)
+            dset_out = add_zw(dset_out)
+            dset_out = add_zrho(dset_out)
+            dset_out = dset_out.swap_dims(s_rho='z_rho', s_w='z_w')
             dset_out.to_netcdf(output)
