@@ -3,6 +3,7 @@ def run(*argv):
         slice,
         average,
         point,
+        cell,
     ]
 
     parser = get_argument_parser(subcommands)
@@ -144,7 +145,10 @@ def average(input, output, start, stop):
 # noinspection PyShadowingBuiltins
 def point(input, output, lat, lon):
     """
-    Interpolate a ROMS dataset at a specific point
+    Interpolate a ROMS dataset at a specific point.
+
+    The script uses bilinear interpolation.
+
     :param input: Name of input file
     :param output: Name of output file
     :param lat: Latitude of point
@@ -163,3 +167,27 @@ def point(input, output, lat, lon):
             dset_out = add_zrho(dset_out)
             dset_out = dset_out.swap_dims(s_rho='z_rho', s_w='z_w')
             dset_out.to_netcdf(output)
+
+
+# noinspection PyShadowingBuiltins
+def cell(input, output, lat, lon):
+    """
+    Select the x/y cell in a ROMS dataset that is closest to the given coordinates.
+
+    :param input: Name of input file
+    :param output: Name of output file
+    :param lat: Latitude of point
+    :param lon: Longitude of point
+    """
+    from .functions import cell_multifile, add_zw, add_zrho
+    import glob
+
+    lat = float(lat)
+    lon = float(lon)
+    fnames = sorted(glob.glob(input))
+
+    dset_out = cell_multifile(fnames, lat, lon)
+    dset_out = add_zw(dset_out)
+    dset_out = add_zrho(dset_out)
+    dset_out = dset_out.swap_dims(s_rho='z_rho', s_w='z_w')
+    dset_out.to_netcdf(output)

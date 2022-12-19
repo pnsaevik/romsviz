@@ -76,6 +76,19 @@ class Test_point:
         assert len(point.z_w) == 36
 
 
+class Test_cell:
+    def test_returns_single_point(self, forcing1):
+        point = functions.cell(forcing1, lat=59.03062209, lon=5.67321047)
+        assert point.temp.dims == ('ocean_time', 's_rho')
+
+    def test_can_add_depths_afterwards(self, forcing1):
+        point = functions.cell(forcing1, lat=59.03062209, lon=5.67321047)
+        point = functions.add_zw(point)
+        point = functions.add_zrho(point)
+        assert len(point.z_rho) == 35
+        assert len(point.z_w) == 36
+
+
 class Test_velocity:
     def test_returns_absolute_velocity_if_no_params(self, forcing1):
         velocity = functions.velocity(forcing1)
