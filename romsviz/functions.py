@@ -158,6 +158,32 @@ def select_layer(variable, selector):
     )
 
 
+def cell_multifile(fnames, lat, lon):
+    import xarray as xr
+    from pathlib import Path
+
+    dset_out = None
+    for fname in fnames:
+        print(Path(fname).name)
+
+        with xr.open_dataset(fname) as dset_in:
+            dset_new = cell(dset_in, lat, lon)
+            if dset_out is None:
+                dset_out = dset_new
+            else:
+                dset_out = xr.combine_nested(
+                    [dset_out, dset_new],
+                    concat_dim='ocean_time',
+                    compat='override',
+                    coords='minimal',
+                    data_vars='minimal',
+                    join='override',
+                    combine_attrs='override',
+                )
+
+    return dset_out
+
+
 def cell(dset, lat, lon):
     import numpy as np
 
