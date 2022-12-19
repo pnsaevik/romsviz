@@ -158,6 +158,34 @@ def select_layer(variable, selector):
     )
 
 
+def cell(dset, lat, lon):
+    import numpy as np
+
+    y, x = bilin_inv(lat, lon, dset.lat_rho.values, dset.lon_rho.values)
+    i = (x + 0.5).astype('i4')
+    j = (y + 0.5).astype('i4')
+
+    i_min = 1
+    j_min = 1
+    i_max = dset.dims['xi_rho'] - 2
+    j_max = dset.dims['eta_rho'] - 2
+    i = np.clip(i, i_min, i_max)
+    j = np.clip(j, j_min, j_max)
+
+    if 'u' in dset:
+        u = dset['u'].isel(xi_u=slice(i-1, i+1), eta_u=j)
+        mask_u = dset['mask_u'].isel(xi_u=slice(i-1, i+1), eta_u=j)
+        dset = dset.assign(u=(u * mask_u).mean(dim='xi_u'))
+    if 'v' in dset:
+        v = dset['v'].isel(xi_v=i, eta_v=slice(j-1, j+1))
+        mask_v = dset['mask_v'].isel(xi_v=i, eta_v=slice(j-1, j+1))
+        dset = dset.assign(v=(v * mask_v).mean(dim='eta_v'))
+
+    dset = dset.isel(xi_rho=i, eta_rho=j, xi_u=i-1, eta_u=j, xi_v=i, eta_v=j-1)
+
+    return dset
+
+
 def point(dset, lat, lon):
     import numpy as np
 
